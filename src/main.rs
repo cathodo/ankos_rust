@@ -24,81 +24,28 @@ struct Renderable {
 pub enum TileType {
     On, Off
 }
-
-#[derive(Default, Clone)]
-pub struct Map {
-    pub tiles : Vec<TileType>,
-    pub width : i32,
-    pub height : i32,
-}
-
-impl Map {
-    pub fn xy_idx(x: i32, y: i32) -> usize {
-        (y as usize * MAPWIDTH) + x as usize
-    }
-    
-    fn new_map() -> Map {
-        let mut map = Map{
-            tiles: vec![TileType::Off; MAPCOUNT],
-            width: MAPWIDTH as i32,
-            height: MAPHEIGHT as i32,
-        };
-        // seed tile
-        let seed_x = MAPWIDTH as i32/2;
-        let seed_y  = MAPHEIGHT as i32/2;
-        map.tiles[Self::xy_idx(seed_x, seed_y)] = TileType::On;
-        
-        map
-    }
-
-    fn ca_step(mut tiles: Vec<TileType>) -> Vec<TileType> {
-    
-        // loop over each position
-        for x in 0..MAPWIDTH {
-            for y in 0..MAPHEIGHT {
-                // count surroundings
-                let mut count = 0;
-                for xc in 0..3 {
-                    for yc in 0..3 {
-                        if xc != 1 && yc != 1 {
-                            let mut checkx: i32 = (x + xc - 1) as i32;
-                            let mut checky: i32 = (y + yc - 1) as i32;
-                            if checkx < 0 {checkx = MAPWIDTH as i32;}
-                            if checkx > MAPWIDTH as i32 {checkx = 0;}
-                            if checky < 0 {checky = MAPHEIGHT as i32;}
-                            if checky > MAPHEIGHT as i32 {checky = 0;}
-                            if tiles[Self::xy_idx(checkx, checky)] == TileType::On {
-                                count += 1;
-                            }
-                        }
-                    }
-                }
-    
-                if count < 2 || count > 3 {
-                    tiles[Self::xy_idx(x as i32, y as i32)] = TileType::Off
-                } else {
-                    tiles[Self::xy_idx(x as i32, y as i32)] = TileType::On
-                }
-    
-    
-            }
-        }
-    
-        tiles
-    }
-}
-
 struct State {
     ecs: World
 }
 
+pub fn xy_idx(x: i32, y: i32) -> usize {
+    (y as usize * MAPWIDTH as usize) + x as usize
+}
 
-fn draw_map(ecs: &World, ctx: &mut BTerm) {
-    let map = ecs.fetch::<Map>();
+pub fn new_map() -> Vec<TileType> {
+    let mut map = vec![TileType::Off; MAPCOUNT];
+    // seed tile
+    let pos = xy_idx(MAPWIDTH as i32/2, MAPHEIGHT as i32/2);
+    map[pos] = TileType::On;
+    
+    map
+}
 
+
+fn draw_map(map: &[TileType], ctx: &mut BTerm) {
     let mut y = 0;
     let mut x = 0;
-    for tile in map.tiles.iter() {
+    for tile in map.iter() {
         // Render a tile depending upon the tile type
         match tile {
             TileType::Off => {
@@ -108,7 +55,7 @@ fn draw_map(ecs: &World, ctx: &mut BTerm) {
                 ctx.set(x, y, RGB::from_f32(0.0, 1.0, 0.0), RGB::from_f32(0., 0., 0.), to_cp437('#'));
             }
         }
-
+        
         // Move the coordinates
         x += 1;
         if x > 79 {
@@ -116,44 +63,80 @@ fn draw_map(ecs: &World, ctx: &mut BTerm) {
             y += 1;
         }
     }
-
+    
 }
-
 
 impl GameState for State {
     fn tick(&mut self, ctx : &mut BTerm) {
         ctx.cls();
 
-        let mut map = self.ecs.fetch_mut::<Map>();
+        let mut map = self.ecs.fetch_mut::<Vec<TileType>>().to_vec();
 
-        map.tiles = Map::ca_step(map.tiles.clone());
-
-        draw_map(&self.ecs, ctx);
-
+        map = ca_step(map);
+        
+        draw_map(&map, ctx);
+        
         let positions = self.ecs.read_storage::<Position>();
         let renderables = self.ecs.read_storage::<Renderable>();
-
+        
         for (pos, render) in (&positions, &renderables).join() {
             ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
         }
     }
 }
 
+fn ca_step(map: Vec<TileType>) -> Vec<TileType> {
+    let width = MAPWIDTH as i32;
+    let height = MAPHEIGHT as i32;
+
+    // buffer for next state
+    let mut new_map = map.clone();
+    // loop over all central cells
+    for x in 0..width {
+        for y in 0..height {
+            let mut count = 0;
+            // context cells
+            for xmod in -1..1 {
+                for ymod in -1..1 {
+                    // skip central
+                    if !(xmod == 0 && ymod == 0) {
+                        let mut xpos = x+xmod;
+                        let mut ypos = y+ymod;
+                        // wrap cell context around the display positions 
+                        if (xpos) > width { xpos=0+xmod }
+                        if (xpos) < 0 { xpos=height+xmod }
+                        if (ypos) > height { ypos=0+ymod }
+                        if (xpos) < 0 { ypos=height+ymod }
+                        if map[xy_idx(xpos, ypos)] == TileType::On { count +=1; }
+                    }
+                }
+            }
+            // modify central cell
+            let pos = xy_idx(x, y);
+            if count < 2 || count > 3 {
+                new_map[pos] = TileType::Off;
+            } else {
+                new_map[pos] = TileType::On;
+            }
+        }
+    }
+    new_map
+}
 
 
 fn main() -> BError {
-    env::set_var("RUST_BACKTRACE", "full");
-    let context = BTermBuilder::simple80x50()
+    env::set_var("RUST_BACKTRACE", "1");
+    let mut context = BTermBuilder::simple80x50()
         .with_title("CA testing")
         .build()?;
+    context.with_post_scanlines(false);
     let mut gs = State {
         ecs: World::new()
     };
     gs.ecs.register::<Position>();
     gs.ecs.register::<Renderable>();
 
-    let map: Map = Map::new_map();
-    gs.ecs.insert(map);
+    gs.ecs.insert(new_map());
 
     main_loop(context, gs)
 }
