@@ -1,5 +1,5 @@
 [package]
-name = "_project_ankos"
+name = "project-ankos"
 version = "0.1.0"
 authors = ["Catherine Odo"]
 edition = "2021"
