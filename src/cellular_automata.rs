@@ -1,99 +1,91 @@
-use specs::*;
+use bracket_lib::prelude::{ RGB, to_cp437, BLACK, GRAY, GREEN, console };
+use specs::prelude::*;
 use specs_derive::*;
+use super::{ Position, Renderable, World, SCREENWIDTH, SCREENHEIGHT, idx_xy };
+
+#[derive(Component, Default, PartialEq, Clone, Copy)]
+pub enum CellState {
+    #[default]
+    Off = 0,
+    On = 1,
+}
 
 #[derive(Component)]
-pub enum Currency {
-    Now = 0,
-    Old = 1,
+pub struct Moore {
+    pub r: usize,
 }
 
-#[derive(Default, PartialEq, Clone, Copy)]
+#[derive(Component)]
 pub struct Cell {
-    pub state: u8,
+    pub state: CellState,
+    pub moore: Moore,
 }
 
-pub struct Cells {
-    pub width: usize,
-    pub height: usize,
-    pub vec: Vec<Cell>,
+pub fn insert_cell_entities(ecs: &mut World) {
+    // bg cells
+    for idx in 0..SCREENHEIGHT*SCREENWIDTH {
+        let (x, y) = idx_xy(idx);
+        ecs
+        .create_entity()
+        .with(Position { x, y })
+        .with(Renderable {
+            glyph: to_cp437('.'),
+            fg: RGB::named(GRAY),
+            bg: RGB::named(BLACK),
+        })
+        .with(Cell{
+            state: CellState::Off,
+            moore: Moore { r: 1 },
+        })
+        .build();
+    }
+
+    // seed cell
+    ecs
+        .create_entity()
+        .with(Position { x: SCREENWIDTH as i32/2, y: SCREENHEIGHT as i32/2 })
+        .with(Renderable {
+            glyph: to_cp437('#'),
+            fg: RGB::named(GREEN),
+            bg: RGB::named(BLACK),
+        })
+        .with(Cell{
+            state: CellState::On,
+            moore: Moore { r: 1 },
+        })
+        .build();
 }
 
-impl Cells {
-    pub fn new(w: usize, h: usize) -> Self {
-        let mut v = Vec::new();
-        v.reserve_exact(w * h);
-        for _i in 0..w * h {
-            v.push(Cell::default());
-        }
-        Cells {
-            width: w,
-            height: h,
-            vec: v,
-        }
+pub fn change_cell_lifeness(render: &mut Renderable, cell: &mut Cell, live: bool) {
+    if live {
+        render.fg = RGB::named(GREEN);
+        render.bg = RGB::named(BLACK);
+        render.glyph = to_cp437('#');
+        cell.state = CellState::On;
+    } else {
+        render.fg = RGB::named(GRAY);
+        render.bg = RGB::named(BLACK);
+        render.glyph = to_cp437('.');
+        cell.state = CellState::Off;
     }
+}
+pub struct AutomataStep {}
 
-    pub fn read(&self, i: usize) -> &Cell {
-        &self.vec[i]
-    }
-    pub fn write(&mut self, i: usize, cell: Cell) {
-        self.vec[i] = cell;
-    }
-    pub fn read_pos(&self, x: usize, y: usize) -> &Cell {
-        self.read(x + self.width * y)
-    }
-    pub fn write_pos(&mut self, x: usize, y: usize, cell: Cell)
-    {
-        self.write(x + self.width * y, cell)
-    }
+impl<'a> System<'a> for AutomataStep {
+    type SystemData = (
+        Entities<'a>,
+        ReadStorage<'a, Position>,
+        WriteStorage<'a, Renderable>,
+        WriteStorage<'a, Cell>,
+    );
 
-    pub fn step(&self) -> Self
-    {
-        let moore = vec![
-            (-1isize, -1isize),
-            (-1, 0),
-            (-1, 1),
-            (0, -1),
-            (0, 1),
-            (1, -1),
-            (1, 0),
-            (1, 1),
-        ];
-        Cells{
-            width: self.width,
-            height: self.height,
-            vec:
-            (0..self.vec.len())
-                .map(|i| {
-                    let x0 = i % self.width;
-                    let y0 = i / self.width;
-                    moore.iter().filter_map(|&(v_x, v_y)| {
-                        let x = x0 as isize + v_x;
-                        let y = y0 as isize + v_y;
-                        if x < 0 || y < 0 || (x as usize) >= self.width || y as usize >= self.height {
-                            None
-                        } else {
-                            Some(self.vec[(x as usize) + self.width * (y as usize)].state)
-                        }
-                    }).fold(0, |somme, ngh| somme+ngh)
-                }).zip(0..self.vec.len()).map(
-                    |(sum, i)| Cell{state:
-                                    match sum
-                                    {
-                                        2 => self.vec[i].state,
-                                        3 => 1,
-                                        _ => 0
-                                    }}
-                )
-                .collect()
-        }
-    }
+    fn run(&mut self, data: Self::SystemData) {
+        let (entities, positions, mut renderables, mut cells) = data;
 
-    pub fn evolve(&self, n: usize)
-    {
-        match n
-        {
-            0 => (),
-            _ => self.step().evolve(n-1)
+        for (_entity, pos, render, cell) in (&entities, &positions, &mut renderables, &mut cells).join() {
+            if pos.x == 48 && pos.y == 24 {
+                change_cell_lifeness(render, cell, cell.state == CellState::Off);
+            }
         }
     }
 }
