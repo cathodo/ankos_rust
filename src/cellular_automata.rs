@@ -3,6 +3,8 @@ use specs::prelude::*;
 use specs_derive::*;
 use super::{ Position, Renderable, World, SCREENWIDTH, SCREENHEIGHT, idx_xy };
 
+pub const WRAPCELLS: bool = true;
+
 #[derive(Component, Default, PartialEq, Clone, Copy)]
 pub enum CellState {
     #[default]
@@ -86,6 +88,10 @@ pub fn change_cell_state(render: &mut Renderable, cell: &mut Cell, live: bool) {
 }
 
 pub fn get_moore_neighbour_counts(buffer: &Vec<(Position, Renderable, Cell)>, pos: &Position, moorad: i32) -> usize {
+    
+    let swidth = SCREENWIDTH as i32;
+    let sheight = SCREENHEIGHT as i32;
+    
     let moorxy: Vec<(i32, i32)> = vec![
         (-1, -1),
         (-1, 0),
@@ -101,21 +107,32 @@ pub fn get_moore_neighbour_counts(buffer: &Vec<(Position, Renderable, Cell)>, po
     let mut count: usize = 0;
 
     let mut neighbourhood: Vec<(i32, i32)> = Vec::new();
-    for _i in 1..moorad {
+    for _i in 1..moorad+1 {
         for &(x, y) in moorxy.iter(){
-            neighbourhood.push((x*moorad, y*moorad));
+            neighbourhood.push((x+moorad, y+moorad));
         }
     }
 
     for &m in neighbourhood.iter() {
         // position
         let (mx, my) = m;
-        let (new_x, new_y) = (pos.x + mx, pos.y + my);
+        let (mut new_x, mut new_y) = (pos.x + mx, pos.y + my);
+        // adjust OOB positions (wrap around)
+        if WRAPCELLS {
+            if new_x < 0 { new_x += swidth };
+            if new_x > swidth { new_x -= swidth };
+            if new_y < 0 { new_y += sheight };
+            if new_y > sheight { new_y -= sheight };
+        }
         // searching buffer, should only have 1 hit
-        let index = buffer.iter().position(|&(p, _r, _c)| p.x == new_x && p.y == new_y).unwrap();
-        let (_mp, _mr, mc) = buffer[index];
+        let index_raw = buffer.iter().position(|&(p, _r, _c)| p.x == new_x && p.y == new_y);
+        // shouldn't be none if we wrap?
+        if !index_raw.is_none() {
+            let index = index_raw.unwrap();
+            let (_mp, _mr, mc) = buffer[index];
+            if mc.state == CellState::On { count += 1 }
+        }
         // check cell
-        if mc.state == CellState::On { count += 1 }
     }
 
     count
@@ -145,12 +162,6 @@ impl<'a> System<'a> for AutomataStep {
         for (_entity, pos, render, cell) in (&entities, &positions, &mut renderables, &mut cells).join() {
             // get moore neighbourhood from buffer
             let neighbours = get_moore_neighbour_counts(&buffer, pos, cell.moore.r);
-            if (pos.x > 38 && pos.x < 42 && pos.y > 23 && pos.y < 27) {
-                console::log(pos.x.to_string());
-                console::log(pos.y.to_string());
-                console::log(neighbours.to_string());
-            }
-
 
             // determine new state 
             if cell.state == CellState::Off {
