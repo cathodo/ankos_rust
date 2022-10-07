@@ -10,40 +10,21 @@ pub enum CellState {
     On = 1,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct Moore {
-    pub r: usize,
+    pub r: i32,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct Cell {
     pub state: CellState,
     pub moore: Moore,
 }
 
-pub fn insert_cell_entities(ecs: &mut World) {
-    // bg cells
-    for idx in 0..SCREENHEIGHT*SCREENWIDTH {
-        let (x, y) = idx_xy(idx);
-        ecs
-        .create_entity()
-        .with(Position { x, y })
-        .with(Renderable {
-            glyph: to_cp437('.'),
-            fg: RGB::named(GRAY),
-            bg: RGB::named(BLACK),
-        })
-        .with(Cell{
-            state: CellState::Off,
-            moore: Moore { r: 1 },
-        })
-        .build();
-    }
-
-    // seed cell
+fn insert_live_cell_entity(ecs: &mut World, x: i32, y: i32) {
     ecs
         .create_entity()
-        .with(Position { x: SCREENWIDTH as i32/2, y: SCREENHEIGHT as i32/2 })
+        .with(Position { x, y })
         .with(Renderable {
             glyph: to_cp437('#'),
             fg: RGB::named(GREEN),
@@ -56,7 +37,41 @@ pub fn insert_cell_entities(ecs: &mut World) {
         .build();
 }
 
-pub fn change_cell_lifeness(render: &mut Renderable, cell: &mut Cell, live: bool) {
+fn insert_dead_cell_entity(ecs: &mut World, x: i32, y: i32) {
+    ecs
+    .create_entity()
+    .with(Position { x, y })
+    .with(Renderable {
+        glyph: to_cp437('.'),
+        fg: RGB::named(GRAY),
+        bg: RGB::named(BLACK),
+    })
+    .with(Cell{
+        state: CellState::Off,
+        moore: Moore { r: 1 },
+    })
+    .build();
+}
+
+pub fn insert_cell_entities(ecs: &mut World) {
+    // seed cells, need 3?
+    let seeds: Vec<(i32, i32)> = vec![
+        (SCREENWIDTH as i32/2, SCREENHEIGHT as i32/2),
+        (SCREENWIDTH as i32/2 - 1, SCREENHEIGHT as i32/2),
+        (SCREENWIDTH as i32/2, SCREENHEIGHT as i32/2 - 1),
+    ];
+    // bg cells
+    for idx in 0..SCREENHEIGHT*SCREENWIDTH {
+        let (x, y) = idx_xy(idx);
+        if seeds.contains(&(x, y)){
+            insert_live_cell_entity(ecs, x, y);
+        } else {
+            insert_dead_cell_entity(ecs, x, y);
+        }
+    }
+}
+
+pub fn change_cell_state(render: &mut Renderable, cell: &mut Cell, live: bool) {
     if live {
         render.fg = RGB::named(GREEN);
         render.bg = RGB::named(BLACK);
@@ -69,6 +84,43 @@ pub fn change_cell_lifeness(render: &mut Renderable, cell: &mut Cell, live: bool
         cell.state = CellState::Off;
     }
 }
+
+pub fn get_moore_neighbour_counts(buffer: &Vec<(Position, Renderable, Cell)>, pos: &Position, moorad: i32) -> usize {
+    let moorxy: Vec<(i32, i32)> = vec![
+        (-1, -1),
+        (-1, 0),
+        (-1, 1),
+        (0, -1),
+        // skip center
+        (0, 1),
+        (1, -1),
+        (1, 0),
+        (1, 1),
+    ];
+
+    let mut count: usize = 0;
+
+    let mut neighbourhood: Vec<(i32, i32)> = Vec::new();
+    for _i in 1..moorad {
+        for &(x, y) in moorxy.iter(){
+            neighbourhood.push((x*moorad, y*moorad));
+        }
+    }
+
+    for &m in neighbourhood.iter() {
+        // position
+        let (mx, my) = m;
+        let (new_x, new_y) = (pos.x + mx, pos.y + my);
+        // searching buffer, should only have 1 hit
+        let index = buffer.iter().position(|&(p, _r, _c)| p.x == new_x && p.y == new_y).unwrap();
+        let (_mp, _mr, mc) = buffer[index];
+        // check cell
+        if mc.state == CellState::On { count += 1 }
+    }
+
+    count
+}
+
 pub struct AutomataStep {}
 
 impl<'a> System<'a> for AutomataStep {
@@ -82,10 +134,34 @@ impl<'a> System<'a> for AutomataStep {
     fn run(&mut self, data: Self::SystemData) {
         let (entities, positions, mut renderables, mut cells) = data;
 
+        let mut buffer: Vec<(Position, Renderable, Cell)> = Vec::new();
+
+        // load buffer
         for (_entity, pos, render, cell) in (&entities, &positions, &mut renderables, &mut cells).join() {
-            if pos.x == 48 && pos.y == 24 {
-                change_cell_lifeness(render, cell, cell.state == CellState::Off);
+            buffer.push((*pos, *render, *cell));
+        }
+
+        // eval new cellstates
+        for (_entity, pos, render, cell) in (&entities, &positions, &mut renderables, &mut cells).join() {
+            // get moore neighbourhood from buffer
+            let neighbours = get_moore_neighbour_counts(&buffer, pos, cell.moore.r);
+            if (pos.x > 38 && pos.x < 42 && pos.y > 23 && pos.y < 27) {
+                console::log(pos.x.to_string());
+                console::log(pos.y.to_string());
+                console::log(neighbours.to_string());
             }
+
+
+            // determine new state 
+            if cell.state == CellState::Off {
+                if neighbours == 3 { change_cell_state(render, cell, true) }
+
+            }
+            if cell.state == CellState::On {
+                if neighbours < 2 { change_cell_state(render, cell, false) }
+                if neighbours > 3 { change_cell_state(render, cell, false) }
+            }
+
         }
     }
 }

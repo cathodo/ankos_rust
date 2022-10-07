@@ -14,7 +14,7 @@ pub fn xy_idx(x: i32, y: i32) -> usize {
 pub fn idx_xy(idx: usize) -> (i32, i32) {
     let x = idx % SCREENWIDTH;
     let y = (idx as f32 / SCREENWIDTH as f32).floor();
-    return (x as i32-1, y as i32-1)
+    return (x as i32, y as i32)
 }
 
 #[derive(Component, Clone, Copy)]
@@ -23,7 +23,7 @@ pub struct Position {
     pub y: i32,
 }
 
-#[derive(Component)]
+#[derive(Component, Clone, Copy)]
 pub struct Renderable {
     pub glyph: FontCharType,
     pub fg: RGB,
