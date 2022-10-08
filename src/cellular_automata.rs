@@ -1,9 +1,17 @@
-use bracket_lib::prelude::{ RGB, to_cp437, BLACK, GRAY, GREEN, console };
-use specs::prelude::*;
+use bracket_lib::prelude::{ BTerm, RGB, to_cp437, BLACK, GRAY, GREEN, FontCharType };
+use specs::*;
 use specs_derive::*;
-use super::{ Position, Renderable, World, SCREENWIDTH, SCREENHEIGHT, idx_xy };
+use super::{ SCREENWIDTH, SCREENHEIGHT };
 
-pub const WRAPCELLS: bool = true;
+pub fn xy_idx(x: i32, y: i32) -> usize {
+    (y as usize * SCREENWIDTH) + x as usize
+}
+
+pub fn idx_xy(idx: usize) -> (i32, i32) {
+    let x = idx % SCREENWIDTH;
+    let y = idx / SCREENWIDTH;
+    return (x as i32, y as i32)
+}
 
 #[derive(Component, Default, PartialEq, Clone, Copy)]
 pub enum CellState {
@@ -13,166 +21,143 @@ pub enum CellState {
 }
 
 #[derive(Component, Clone, Copy)]
-pub struct Moore {
-    pub r: i32,
-}
-
-#[derive(Component, Clone, Copy)]
 pub struct Cell {
     pub state: CellState,
-    pub moore: Moore,
+    pub x: i32,
+    pub y: i32,
+    pub glyph: FontCharType,
+    pub fg: RGB,
+    pub bg: RGB,
 }
 
-fn insert_live_cell_entity(ecs: &mut World, x: i32, y: i32) {
-    ecs
-        .create_entity()
-        .with(Position { x, y })
-        .with(Renderable {
-            glyph: to_cp437('#'),
-            fg: RGB::named(GREEN),
-            bg: RGB::named(BLACK),
-        })
-        .with(Cell{
-            state: CellState::On,
-            moore: Moore { r: 1 },
-        })
-        .build();
-}
-
-fn insert_dead_cell_entity(ecs: &mut World, x: i32, y: i32) {
-    ecs
-    .create_entity()
-    .with(Position { x, y })
-    .with(Renderable {
-        glyph: to_cp437('.'),
-        fg: RGB::named(GRAY),
-        bg: RGB::named(BLACK),
-    })
-    .with(Cell{
-        state: CellState::Off,
-        moore: Moore { r: 1 },
-    })
-    .build();
-}
-
-pub fn insert_cell_entities(ecs: &mut World) {
-    // seed cells, need 3?
-    let seeds: Vec<(i32, i32)> = vec![
-        (SCREENWIDTH as i32/2, SCREENHEIGHT as i32/2),
-        (SCREENWIDTH as i32/2 - 1, SCREENHEIGHT as i32/2),
-        (SCREENWIDTH as i32/2, SCREENHEIGHT as i32/2 - 1),
-    ];
-    // bg cells
-    for idx in 0..SCREENHEIGHT*SCREENWIDTH {
-        let (x, y) = idx_xy(idx);
-        if seeds.contains(&(x, y)){
-            insert_live_cell_entity(ecs, x, y);
-        } else {
-            insert_dead_cell_entity(ecs, x, y);
-        }
-    }
-}
-
-pub fn change_cell_state(render: &mut Renderable, cell: &mut Cell, live: bool) {
-    if live {
-        render.fg = RGB::named(GREEN);
-        render.bg = RGB::named(BLACK);
-        render.glyph = to_cp437('#');
-        cell.state = CellState::On;
-    } else {
-        render.fg = RGB::named(GRAY);
-        render.bg = RGB::named(BLACK);
-        render.glyph = to_cp437('.');
-        cell.state = CellState::Off;
-    }
-}
-
-pub fn get_moore_neighbour_counts(buffer: &Vec<(Position, Renderable, Cell)>, pos: &Position, moorad: i32) -> usize {
-    
-    let swidth = SCREENWIDTH as i32;
-    let sheight = SCREENHEIGHT as i32;
-    
-    let moorxy: Vec<(i32, i32)> = vec![
-        (-1, -1),
-        (-1, 0),
-        (-1, 1),
-        (0, -1),
-        // skip center
-        (0, 1),
-        (1, -1),
-        (1, 0),
-        (1, 1),
-    ];
-
-    let mut count: usize = 0;
-
-    let mut neighbourhood: Vec<(i32, i32)> = Vec::new();
-    for _i in 1..moorad+1 {
-        for &(x, y) in moorxy.iter(){
-            neighbourhood.push((x+moorad, y+moorad));
-        }
-    }
-
-    for &m in neighbourhood.iter() {
-        // position
-        let (mx, my) = m;
-        let (mut new_x, mut new_y) = (pos.x + mx, pos.y + my);
-        // adjust OOB positions (wrap around)
-        if WRAPCELLS {
-            if new_x < 0 { new_x += swidth };
-            if new_x > swidth { new_x -= swidth };
-            if new_y < 0 { new_y += sheight };
-            if new_y > sheight { new_y -= sheight };
-        }
-        // searching buffer, should only have 1 hit
-        let index_raw = buffer.iter().position(|&(p, _r, _c)| p.x == new_x && p.y == new_y);
-        // shouldn't be none if we wrap?
-        if !index_raw.is_none() {
-            let index = index_raw.unwrap();
-            let (_mp, _mr, mc) = buffer[index];
-            if mc.state == CellState::On { count += 1 }
-        }
-        // check cell
-    }
-
-    count
-}
-
-pub struct AutomataStep {}
-
-impl<'a> System<'a> for AutomataStep {
-    type SystemData = (
-        Entities<'a>,
-        ReadStorage<'a, Position>,
-        WriteStorage<'a, Renderable>,
-        WriteStorage<'a, Cell>,
-    );
-
-    fn run(&mut self, data: Self::SystemData) {
-        let (entities, positions, mut renderables, mut cells) = data;
-
-        let mut buffer: Vec<(Position, Renderable, Cell)> = Vec::new();
-
-        // load buffer
-        for (_entity, pos, render, cell) in (&entities, &positions, &mut renderables, &mut cells).join() {
-            buffer.push((*pos, *render, *cell));
-        }
-
-        // eval new cellstates
-        for (_entity, pos, render, cell) in (&entities, &positions, &mut renderables, &mut cells).join() {
-            // get moore neighbourhood from buffer
-            let neighbours = get_moore_neighbour_counts(&buffer, pos, cell.moore.r);
-
-            // determine new state 
-            if cell.state == CellState::Off {
-                if neighbours == 3 { change_cell_state(render, cell, true) }
-
+impl Cell {
+    pub fn new(state: CellState, x: i32, y: i32) -> Cell {
+        match state {
+            CellState::On => {
+                Cell {
+                    state: CellState::On,
+                    x,
+                    y,
+                    glyph: to_cp437('#'),
+                    fg: RGB::named(GREEN),
+                    bg: RGB::named(BLACK),
+                }
+            },
+            CellState::Off => {
+                Cell {
+                    state: CellState::Off,
+                    x,
+                    y,
+                    glyph: to_cp437('.'),
+                    fg: RGB::named(GRAY),
+                    bg: RGB::named(BLACK),
+                }
             }
-            if cell.state == CellState::On {
-                if neighbours < 2 { change_cell_state(render, cell, false) }
-                if neighbours > 3 { change_cell_state(render, cell, false) }
+        }
+    }
+}
+
+#[derive(Component, Clone)]
+pub struct CellGrid2d {
+    pub width: usize,
+    pub height: usize,
+    pub cells: Vec<Cell>,
+    pub wrap: bool,
+}
+
+impl CellGrid2d {
+    pub fn new(w: usize, h: usize, seeds: Vec<(i32, i32)>, wrap: bool) -> CellGrid2d {
+
+        let mut v: Vec<Cell> = Vec::new();
+
+        for idx in 0..w*h {
+            let (x, y) = idx_xy(idx);
+            if seeds.contains(&(x, y)){
+                // add living cell
+                v.push(Cell::new(CellState::On, x, y));
+            } else {
+                // add dead cell
+                v.push(Cell::new(CellState::Off, x, y));
+            }
+        }
+
+        CellGrid2d { 
+            width: w,
+            height: h,
+            cells: v,
+            wrap,
+         }
+    }
+
+    pub fn step(&self) -> Self {
+        let moore: Vec<(i32, i32)> = vec![
+            (-1, -1),
+            (-1, 0),
+            (-1, 1),
+            (0, -1),
+            // skip center
+            (0, 1),
+            (1, -1),
+            (1, 0),
+            (1, 1),
+        ];
+        let w: i32 = self.width as i32;
+        let h: i32 = self.height as i32;
+
+        let buffer = self.cells.clone();
+        let mut new_cells: Vec<Cell> = Vec::new();
+        // iter the cells to find new states
+        for idx in 0..self.cells.len() {
+            let (cell_x, cell_y) = idx_xy(idx); 
+            let mut n = 0;
+            // iter over all moore n(eighbours)
+            for (m_x, m_y) in moore.iter() {
+                let mut x = cell_x + m_x;
+                let mut y = cell_y + m_y;
+                // if wrap, adjust the neighbor position to other side
+                // ctx has 0:width-1 and 0:height-1 coords, so we use >= on the upper bound 
+                if self.wrap {
+                    if x < 0 { x += w }
+                    if x >= w { x -= w }
+                    if y < 0 { y += h }
+                    if y >= h { y -= h }
+                    // check neighbour state (use buffer)
+                    if buffer[xy_idx(x, y)].state == CellState::On { n += 1 }
+                } else { 
+                    // if not wrap, ignore illegal positions
+                    if !(x < 0 || x >= w || y < 0 || y >= h) {
+                        if buffer[xy_idx(x, y)].state == CellState::On { n += 1 }
+                    }
+                }
+            }
+            // after moore iter, decide new cell state
+            let new_state: CellState;
+            // currently, conway rules
+            match buffer[xy_idx(cell_x, cell_y)].state {
+                CellState::On => {
+                    if n < 1 || n > 3 { new_state = CellState::Off } 
+                    else { new_state = CellState::On }
+                },
+                CellState::Off => {
+                    if n == 3 || n == 2 { new_state = CellState::On }
+                    else { new_state = CellState::Off }
+                },
             }
 
+            new_cells.push(Cell::new(new_state, cell_x, cell_y));
+        } 
+
+        CellGrid2d { 
+            cells: new_cells,
+            width: self.width, 
+            height: self.height,
+            wrap: self.wrap,
+        }
+    }
+
+    pub fn draw_cells(&self, ctx: &mut BTerm) {
+        for c in &self.cells {
+            ctx.set(c.x, c.y, c.fg, c.bg, c.glyph)
         }
     }
 }
