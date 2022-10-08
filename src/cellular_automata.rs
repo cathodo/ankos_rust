@@ -135,11 +135,11 @@ impl CellGrid2d {
             // currently, conway rules
             match buffer[xy_idx(cell_x, cell_y)].state {
                 CellState::On => {
-                    if n < 1 || n > 3 { new_state = CellState::Off } 
+                    if n < 2 || n > 3 { new_state = CellState::Off } 
                     else { new_state = CellState::On }
                 },
                 CellState::Off => {
-                    if n == 3 || n == 2 { new_state = CellState::On }
+                    if n == 3 { new_state = CellState::On }
                     else { new_state = CellState::Off }
                 },
             }

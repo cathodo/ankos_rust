@@ -3,9 +3,11 @@ use specs::prelude::*;
 mod cellular_automata;
 use cellular_automata::*;
 
-pub const SCREENWIDTH: usize = 80;
-pub const SCREENHEIGHT: usize = 60;
-pub const WRAPCELLS: bool = true;
+pub const SCREENWIDTH: usize = 160;
+pub const SCREENHEIGHT: usize = 120;
+pub const WRAPCELLS: bool = false;
+const CYCLESPERSECOND: f32 = 10.0;
+const PERCENTRANDOMSEED: i32 = 11;
 
 
 #[derive(PartialEq, Copy, Clone)]
@@ -16,14 +18,19 @@ struct State {
     pub runstate : RunState
 }
 
-fn player_input(ctx: &mut BTerm) -> RunState {
+fn player_input(current_state: RunState, ctx: &mut BTerm) -> RunState {
     // Player movement
     match ctx.key {
-        None => { return RunState::Paused } // Nothing happened
+        None => { return current_state } // Nothing happened
         Some(key) => match key {
-            VirtualKeyCode::Space => { return RunState::Running }
+            VirtualKeyCode::Space => { 
+                match current_state {
+                    RunState::Running => { return RunState::Paused }
+                    RunState::Paused => { return RunState::Running }
+                }
+             }
 
-            _ => { return RunState::Paused }
+            _ => { return current_state }
         },
     }
 }
@@ -38,10 +45,10 @@ impl GameState for State {
         match self.runstate {
             RunState::Running => {
                 cells = cells.step();
-                self.runstate = RunState::Running;
+                self.runstate = player_input(self.runstate, ctx);
             }
             RunState::Paused => {
-                self.runstate = player_input(ctx);
+                self.runstate = player_input(self.runstate, ctx);
             }
         }
         
@@ -53,6 +60,7 @@ fn main() -> BError {
     let mut context = BTermBuilder::simple(SCREENWIDTH, SCREENHEIGHT)
         .unwrap()
         .with_title("CA testing")
+        .with_fps_cap(CYCLESPERSECOND)
         .build()?;
     context.with_post_scanlines(true);
 
@@ -66,14 +74,16 @@ fn main() -> BError {
     let w: i32 = SCREENWIDTH as i32;
     let h: i32 = SCREENHEIGHT as i32;
 
-    let seeds: Vec<(i32, i32)> = vec![
-        (w/2, h/2),
-        (w/2-1, h/2),
-        (w/2, h/2-1),
-    ];
+    // randomly generate seeds
+    // set at about 11 percent of screen area atm
+    let nseeds = w*h/100*PERCENTRANDOMSEED;
+    let mut rng = RandomNumberGenerator::new();
+    let mut seeds: Vec<(i32, i32)> = Vec::new();
+    for _s in 0..nseeds {
+        seeds.push((w-rng.range(0, w), h-rng.range(0, h)));
+    }
 
     let cells = CellGrid2d::new(SCREENWIDTH, SCREENHEIGHT, seeds, WRAPCELLS);
-
     gs.ecs.insert(cells);
 
     main_loop(context, gs)
