@@ -1,7 +1,7 @@
 use bracket_lib::prelude::*;
 use specs::prelude::*;
 
-use super::{ WRAPCELLS, CellGrid2d };
+use super::{ WRAPCELLS, CellGrid2d, CellGrid1d };
 
 // 2d params
 const PERCENTRANDOMSEED: i32 = 11;
@@ -22,5 +22,22 @@ pub fn setup_ecs_2d(ecs: &mut World, width: usize, height: usize) {
     }
 
     let cells = CellGrid2d::new(width, height, seeds, WRAPCELLS);
+    ecs.insert(cells);
+}
+
+// 1d params
+const SCROLLDOWN: bool = true;
+
+pub fn setup_ecs_1d(ecs: &mut World, width: usize, height: usize) {
+    // CA
+    ecs.register::<CellGrid1d>();
+
+    let w: i32 = width as i32;
+    let h: i32 = height as i32;
+    // init seed is center first row
+    let seeds: Vec<(i32, i32)> = Vec::new();
+    seeds.push((w/2,0));
+
+    let cells = CellGrid1d::new(width, height, seeds, WRAPCELLS, SCROLLDOWN);
     ecs.insert(cells);
 }
