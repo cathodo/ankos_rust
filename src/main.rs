@@ -1,3 +1,5 @@
+use std::env;
+
 use bracket_lib::prelude::*;
 use specs::prelude::*;
 mod cellular_automata;
@@ -8,7 +10,20 @@ use mode_terminals::*;
 pub const SCREENWIDTH: usize = 160;
 pub const SCREENHEIGHT: usize = 120;
 const CYCLESPERSECOND: f32 = 10.0;
+// 2d params
 pub const WRAPCELLS: bool = false;
+const PERCENTRANDOMSEED: i32 = 11;
+// 1d params
+const SCROLLDOWN: bool = true;
+// choose 2d or 1d
+pub const MODE: Mode = Mode::Wolfram;
+
+////////////////////////////////////////
+////////////////////////////////////////
+////////////////////////////////////////
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum Mode { Conway, Wolfram }
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState { Paused, Running }
@@ -39,7 +54,7 @@ impl GameState for State {
     fn tick(&mut self, ctx : &mut BTerm) {
         ctx.cls();
         
-        let mut cells: CellGrid2d = self.ecs.fetch_mut::<CellGrid2d>().to_owned();
+        let mut cells = self.ecs.fetch_mut::<CellGrid>().to_owned();
         cells.draw_cells(ctx);
         
         match self.runstate {
@@ -57,6 +72,7 @@ impl GameState for State {
 }
 
 fn main() -> BError {
+    env::set_var("RUST_BACKTRACE", "1");
     let mut context = BTermBuilder::simple(SCREENWIDTH, SCREENHEIGHT)
         .unwrap()
         .with_title("CA testing")
@@ -70,7 +86,11 @@ fn main() -> BError {
         runstate: RunState::Paused,
     };
 
-    setup_ecs_2d(&mut gs.ecs, SCREENWIDTH, SCREENHEIGHT);
+    match MODE {
+        Mode::Conway => { setup_ecs_2d(&mut gs.ecs, SCREENWIDTH, SCREENHEIGHT) },
+        Mode::Wolfram => { setup_ecs_1d(&mut gs.ecs, SCREENWIDTH, SCREENHEIGHT) },
+        _ => {}, 
+    }
 
     main_loop(context, gs)
 }
