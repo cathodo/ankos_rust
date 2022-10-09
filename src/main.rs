@@ -2,13 +2,13 @@ use bracket_lib::prelude::*;
 use specs::prelude::*;
 mod cellular_automata;
 use cellular_automata::*;
+mod mode_terminals;
+use mode_terminals::*;
 
 pub const SCREENWIDTH: usize = 160;
 pub const SCREENHEIGHT: usize = 120;
-pub const WRAPCELLS: bool = false;
 const CYCLESPERSECOND: f32 = 10.0;
-const PERCENTRANDOMSEED: i32 = 11;
-
+pub const WRAPCELLS: bool = false;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState { Paused, Running }
@@ -62,29 +62,15 @@ fn main() -> BError {
         .with_title("CA testing")
         .with_fps_cap(CYCLESPERSECOND)
         .build()?;
-    context.with_post_scanlines(true);
 
+    context.with_post_scanlines(true);
 
     let mut gs = State {
         ecs: World::new(),
         runstate: RunState::Paused,
     };
-    gs.ecs.register::<CellGrid2d>();
 
-    let w: i32 = SCREENWIDTH as i32;
-    let h: i32 = SCREENHEIGHT as i32;
-
-    // randomly generate seeds
-    // set at about 11 percent of screen area atm
-    let nseeds = w*h/100*PERCENTRANDOMSEED;
-    let mut rng = RandomNumberGenerator::new();
-    let mut seeds: Vec<(i32, i32)> = Vec::new();
-    for _s in 0..nseeds {
-        seeds.push((w-rng.range(0, w), h-rng.range(0, h)));
-    }
-
-    let cells = CellGrid2d::new(SCREENWIDTH, SCREENHEIGHT, seeds, WRAPCELLS);
-    gs.ecs.insert(cells);
+    setup_ecs_2d(&mut gs.ecs, SCREENWIDTH, SCREENHEIGHT);
 
     main_loop(context, gs)
 }
