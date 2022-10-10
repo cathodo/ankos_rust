@@ -1,7 +1,7 @@
 use bracket_lib::prelude::*;
 use specs::prelude::*;
 
-use super::{ WRAPCELLS, PERCENTRANDOMSEED, SCROLLDOWN, CellGrid, Mode };
+use super::{ WRAPCELLS, PERCENTRANDOMSEED, SCROLLMODE, CellGrid, Mode };
 
 pub fn setup_ecs_2d(ecs: &mut World, width: usize, height: usize) {
     // CA
@@ -18,7 +18,7 @@ pub fn setup_ecs_2d(ecs: &mut World, width: usize, height: usize) {
         seeds.push((w-rng.range(0, w), h-rng.range(0, h)));
     }
 
-    let cells = CellGrid::new(Mode::Conway, width, height, seeds, WRAPCELLS, SCROLLDOWN);
+    let cells = CellGrid::new(Mode::Conway, width, height, seeds, WRAPCELLS, SCROLLMODE);
     ecs.insert(cells);
 }
 
@@ -32,6 +32,6 @@ pub fn setup_ecs_1d(ecs: &mut World, width: usize, height: usize) {
     let mut seeds: Vec<(i32, i32)> = Vec::new();
     seeds.push((w/2,0));
 
-    let cells = CellGrid::new(Mode::Wolfram, width, height, seeds, WRAPCELLS, SCROLLDOWN);
+    let cells = CellGrid::new(Mode::Wolfram, width, height, seeds, WRAPCELLS, SCROLLMODE);
     ecs.insert(cells);
 }

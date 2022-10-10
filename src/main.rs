@@ -9,14 +9,23 @@ use mode_terminals::*;
 
 pub const SCREENWIDTH: usize = 160;
 pub const SCREENHEIGHT: usize = 120;
-const CYCLESPERSECOND: f32 = 10.0;
-// 2d params
-pub const WRAPCELLS: bool = false;
-const PERCENTRANDOMSEED: i32 = 11;
-// 1d params
-const SCROLLDOWN: bool = true;
-// choose 2d or 1d
+const CYCLESPERSECOND: f32 = 30.0;
+////// choose 2d or 1d
 pub const MODE: Mode = Mode::Wolfram;
+////// use space to pause/unpause (false), or just to advance one state (true)
+pub const SPACEONESTEP: bool = false;
+// if cells on edge wrap around to check neighbours
+// slightly diff behaviour on 2d vs 1d, 2d wraps all edges, 
+// 1d only wraps x axis edges (L & R not top & bottom) see SCROLLMODE
+pub const WRAPCELLS: bool = true;
+
+//// 2d params
+// percentage of screen to be random cells in seed init
+const PERCENTRANDOMSEED: i32 = 11;
+
+//// 1d params
+// shift whole thing, loop around to top, or don't do either
+const SCROLLMODE: ScrollMode = ScrollMode::Shift;
 
 ////////////////////////////////////////
 ////////////////////////////////////////
@@ -24,6 +33,9 @@ pub const MODE: Mode = Mode::Wolfram;
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum Mode { Conway, Wolfram }
+
+#[derive(PartialEq, Copy, Clone)]
+pub enum ScrollMode { Shift, Loop, Stop }
 
 #[derive(PartialEq, Copy, Clone)]
 pub enum RunState { Paused, Running }
@@ -45,7 +57,7 @@ fn player_input(current_state: RunState, ctx: &mut BTerm) -> RunState {
                 }
              }
 
-            _ => { return current_state }
+            _ => { current_state }
         },
     }
 }
@@ -60,6 +72,7 @@ impl GameState for State {
         match self.runstate {
             RunState::Running => {
                 cells = cells.step();
+                if SPACEONESTEP { self.runstate = RunState::Paused; }
                 self.runstate = player_input(self.runstate, ctx);
             }
             RunState::Paused => {
@@ -89,7 +102,6 @@ fn main() -> BError {
     match MODE {
         Mode::Conway => { setup_ecs_2d(&mut gs.ecs, SCREENWIDTH, SCREENHEIGHT) },
         Mode::Wolfram => { setup_ecs_1d(&mut gs.ecs, SCREENWIDTH, SCREENHEIGHT) },
-        _ => {}, 
     }
 
     main_loop(context, gs)
