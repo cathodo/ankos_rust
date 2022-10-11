@@ -133,7 +133,7 @@ impl CellGrid {
         }
     }
 
-    fn match_rule(statebin: &str, rule: Vec<char>) -> CellState {
+    fn wolfram_rule(statebin: &str, rule: Vec<char>) -> CellState {
         let new_state: CellState;
 
         // generalize rules by converting binary number into string
@@ -204,12 +204,11 @@ impl CellGrid {
         let w: i32 = self.width as i32;
         let h: i32 = self.height as i32;
 
-        let mut buffer: Vec<Cell> = self.cells.clone();
+        let buffer: Vec<Cell> = self.cells.clone();
         let mut new_cells: Vec<Cell> = self.cells.clone();
 
         // iter only cells which are in w_line
         for idx in (self.w_line*self.width)..((self.w_line+1)*self.width) {
-            let mut new_state = CellState::Off; //buffer[idx].state;
             let (cell_x, cell_y) = idx_xy(idx); 
             // iter over all n(eighbours), hold record
             let mut state_records: Vec<CellState> = Vec::new();
@@ -230,28 +229,21 @@ impl CellGrid {
                     if x < 0 { x += w }
                     if x >= w { x -= w }
                         // check neighbour state (use buffer)
-                        if buffer[xy_idx(x, y)].state == CellState::On { state_records.push(CellState::On); }
-                        else { state_records.push(CellState::Off); }
+                        state_records.push(buffer[xy_idx(x, y)].state);
                 } else { 
                     // if not wrap, ignore illegal positions
                     if !(x < 0 || x >= w) {
                         // check neighbour state (use buffer)
-                        if buffer[xy_idx(x, y)].state == CellState::On { state_records.push(CellState::On); }
-                        else { state_records.push(CellState::Off); }
+                        state_records.push(buffer[xy_idx(x, y)].state);
                     }
                 }
             }
+
             // compile state_records
             let state_binary: String = Self::to_digits(state_records);
-
             // after moore iter, decide new cell state
-            match buffer[xy_idx(cell_x, cell_y)].state {
-                CellState::On => {},
-                CellState::Off => {
-                    let rule: Vec<char> = Self::rule_from_number(RULE);
-                    new_state = Self::match_rule(&state_binary, rule)
-                }
-            }
+            let rule: Vec<char> = Self::rule_from_number(RULE);
+            let new_state = Self::wolfram_rule(&state_binary, rule);
 
             // new cells are made the same way as the buffer so we don't need to compute them all each time
             // only the w_line
@@ -284,13 +276,46 @@ impl CellGrid {
         }
     }
 
+    fn moore_rule(state_records: Vec<CellState>) -> CellState {
+        let center_pos: usize = state_records.len()/2;
+        let center = state_records[center_pos];
+        //count neighbours
+        let mut n = 0;
+        for idx in 0..state_records.len() {
+            if idx != center_pos {
+                match state_records[idx] {
+                    CellState::On => { n += 1 },
+                    CellState::Off => { n += 0 },
+                }
+            }
+        }
+
+        //decide new state
+        match center {
+            CellState::On => {
+                if n < 2 || n > 3 { 
+                    return CellState::Off 
+                } else { 
+                    return CellState::On 
+                }
+            },
+            CellState::Off => {
+                if n == 3 { 
+                    return CellState::On 
+                } else { 
+                    return CellState::Off 
+                }
+            },
+        }
+    }
+
     fn conway_step(&self) -> Self {
-        let moore: Vec<(i32, i32)> = vec![
+        let state_informing_neighbours: Vec<(i32, i32)> = vec![
             (-1, -1),
             (-1, 0),
             (-1, 1),
             (0, -1),
-            // skip center
+            (0, 0),// use center in new state calc
             (0, 1),
             (1, -1),
             (1, 0),
@@ -307,7 +332,8 @@ impl CellGrid {
             let (cell_x, cell_y) = idx_xy(idx); 
             let mut n = 0;
             // iter over all moore n(eighbours)
-            for (m_x, m_y) in moore.iter() {
+            let mut state_records: Vec<CellState> = Vec::new();
+            for (m_x, m_y) in state_informing_neighbours.iter() {
                 let mut x = cell_x + m_x;
                 let mut y = cell_y + m_y;
                 // if wrap, adjust the neighbor position to other side
@@ -318,25 +344,17 @@ impl CellGrid {
                     if y < 0 { y += h }
                     if y >= h { y -= h }
                     // check neighbour state (use buffer)
-                    if buffer[xy_idx(x, y)].state == CellState::On { n += 1 }
+                    state_records.push(buffer[xy_idx(x, y)].state);
                 } else { 
                     // if not wrap, ignore illegal positions
                     if !(x < 0 || x >= w || y < 0 || y >= h) {
-                        if buffer[xy_idx(x, y)].state == CellState::On { n += 1 }
+                        state_records.push(buffer[xy_idx(x, y)].state);
                     }
                 }
             }
+
             // after moore iter, decide new cell state
-            match buffer[xy_idx(cell_x, cell_y)].state {
-                CellState::On => {
-                    if n < 2 || n > 3 { new_state = CellState::Off } 
-                    else { new_state = CellState::On }
-                },
-                CellState::Off => {
-                    if n == 3 { new_state = CellState::On }
-                    else { new_state = CellState::Off }
-                },
-            }
+            new_state = Self::moore_rule(state_records);
 
             new_cells.push(Cell::new(new_state, cell_x, cell_y));
         } 

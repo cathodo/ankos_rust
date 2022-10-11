@@ -1,5 +1,3 @@
-use std::env;
-
 use bracket_lib::prelude::*;
 use specs::prelude::*;
 mod cellular_automata;
@@ -8,10 +6,11 @@ mod mode_terminals;
 use mode_terminals::*;
 
 pub const SCREENWIDTH: usize = 160;
-pub const SCREENHEIGHT: usize = 120;
+pub const SCREENHEIGHT: usize = 100;
 const CYCLESPERSECOND: f32 = 30.0;
 ////// choose 2d or 1d
-pub const MODE: Mode = Mode::Wolfram;
+pub const MODE: Mode = Mode::Conway;
+
 ////// use space to pause/unpause (false), or just to advance one state (true)
 pub const SPACEONESTEP: bool = false;
 // if cells on edge wrap around to check neighbours
