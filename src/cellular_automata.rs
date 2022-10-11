@@ -1,7 +1,7 @@
 use bracket_lib::prelude::{ BTerm, RGB, to_cp437, BLACK, GRAY, GREEN, FontCharType, console };
 use specs::*;
 use specs_derive::*;
-use super::{ SCREENWIDTH, SCREENHEIGHT, Mode, ScrollMode };
+use super::{ SCREENWIDTH, SCREENHEIGHT, Mode, ScrollMode, RULE };
 
 pub fn xy_idx(x: i32, y: i32) -> usize {
     (y as usize * SCREENWIDTH) + x as usize
@@ -114,19 +114,38 @@ impl CellGrid {
         digits
     }
 
-    fn match_rule(statebin: &str) -> CellState {
+    fn rule_from_number(n: i32) -> Vec<char> {
+        let mut str: String = format!("{:b}", n).to_string();
+        
+        // prepending 0's
+        for p in 0..8-str.len() {
+            str = format!("{}{}", "0", str)
+        }
+
+        str.chars().collect()
+    }
+
+    fn state_index(n: char) -> CellState {
+        match n {
+            '0' => return CellState::Off,
+            '1' => return CellState::On,
+            _ => return CellState::Off
+        }
+    }
+
+    fn match_rule(statebin: &str, rule: Vec<char>) -> CellState {
         let new_state: CellState;
 
-        // currently rule 110
+        // generalize rules by converting binary number into string
         match statebin {
-            "111" => { new_state = CellState::Off },
-            "110" => { new_state = CellState::On },
-            "101" => { new_state = CellState::On },
-            "100" => { new_state = CellState::Off },
-            "011" => { new_state = CellState::On },
-            "010" => { new_state = CellState::On },
-            "001" => { new_state = CellState::On },
-            "000" => { new_state = CellState::Off },
+            "111" => { new_state = Self::state_index(rule[0]) },
+            "110" => { new_state = Self::state_index(rule[1]) },
+            "101" => { new_state = Self::state_index(rule[2]) },
+            "100" => { new_state = Self::state_index(rule[3]) },
+            "011" => { new_state = Self::state_index(rule[4]) },
+            "010" => { new_state = Self::state_index(rule[5]) },
+            "001" => { new_state = Self::state_index(rule[6]) },
+            "000" => { new_state = Self::state_index(rule[7]) },
             _ => { new_state = CellState::Off }
         }
 
@@ -223,13 +242,14 @@ impl CellGrid {
                 }
             }
             // compile state_records
-            let state_binary = Self::to_digits(state_records);
+            let state_binary: String = Self::to_digits(state_records);
 
             // after moore iter, decide new cell state
             match buffer[xy_idx(cell_x, cell_y)].state {
                 CellState::On => {},
                 CellState::Off => {
-                    new_state = Self::match_rule(state_binary.as_str())
+                    let rule: Vec<char> = Self::rule_from_number(RULE);
+                    new_state = Self::match_rule(&state_binary, rule)
                 }
             }
 

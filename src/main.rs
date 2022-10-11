@@ -26,6 +26,8 @@ const PERCENTRANDOMSEED: i32 = 11;
 //// 1d params
 // shift whole thing, loop around to top, or don't do either
 const SCROLLMODE: ScrollMode = ScrollMode::Shift;
+// can be 0-256
+const RULE: i32 = 30;
 
 ////////////////////////////////////////
 ////////////////////////////////////////
@@ -85,7 +87,6 @@ impl GameState for State {
 }
 
 fn main() -> BError {
-    env::set_var("RUST_BACKTRACE", "1");
     let mut context = BTermBuilder::simple(SCREENWIDTH, SCREENHEIGHT)
         .unwrap()
         .with_title("CA testing")
