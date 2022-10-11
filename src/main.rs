@@ -5,11 +5,11 @@ use cellular_automata::*;
 mod mode_terminals;
 use mode_terminals::*;
 
-pub const SCREENWIDTH: usize = 80;
-pub const SCREENHEIGHT: usize = 60;
+pub const SCREENWIDTH: usize = 160;
+pub const SCREENHEIGHT: usize = 90;
 const CYCLESPERSECOND: f32 = 30.0;
 ////// choose 2d or 1d
-pub const MODE: Mode = Mode::Wolfram;
+pub const MODE: Mode = Mode::Conway;
 
 ////// use space to pause/unpause (false), or just to advance one state (true)
 pub const SPACEONESTEP: bool = false;

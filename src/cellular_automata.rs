@@ -1,4 +1,6 @@
-use bracket_lib::prelude::{ BTerm, RGB, to_cp437, BLACK, GRAY, GREEN, FontCharType, console };
+use bracket_lib::prelude::{ BTerm, RGB, to_cp437, FontCharType, console };
+// all colours?
+use bracket_lib::prelude::*;
 use specs::*;
 use specs_derive::*;
 use super::{ SCREENWIDTH, SCREENHEIGHT, Mode, ScrollMode, RULE };
@@ -38,7 +40,7 @@ impl Cell {
                     state: CellState::On,
                     x,
                     y,
-                    glyph: to_cp437('#'),
+                    glyph: to_cp437('='),
                     fg: RGB::named(GREEN),
                     bg: RGB::named(BLACK),
                 }
@@ -49,7 +51,7 @@ impl Cell {
                     x,
                     y,
                     glyph: to_cp437('.'),
-                    fg: RGB::named(GRAY),
+                    fg: RGB::named(RED),
                     bg: RGB::named(BLACK),
                 }
             }
