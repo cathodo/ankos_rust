@@ -133,45 +133,6 @@ impl CellGrid {
         }
     }
 
-    fn wolfram_rule(statebin: &str, rule: Vec<char>) -> CellState {
-        let new_state: CellState;
-
-        // generalize rules by converting binary number into string
-        match statebin {
-            "111" => { new_state = Self::state_index(rule[0]) },
-            "110" => { new_state = Self::state_index(rule[1]) },
-            "101" => { new_state = Self::state_index(rule[2]) },
-            "100" => { new_state = Self::state_index(rule[3]) },
-            "011" => { new_state = Self::state_index(rule[4]) },
-            "010" => { new_state = Self::state_index(rule[5]) },
-            "001" => { new_state = Self::state_index(rule[6]) },
-            "000" => { new_state = Self::state_index(rule[7]) },
-            _ => { new_state = CellState::Off }
-        }
-
-        new_state
-    }
-
-    fn null_step(&self) -> Self {
-
-        let mut new_cells: Vec<Cell> = Vec::new();
-        for idx in 0..self.cells.len() {
-            let (cell_x, cell_y) = idx_xy(idx);
-            new_cells.push(Cell::new(self.cells[idx].state, cell_x, cell_y))
-        }
-
-
-        CellGrid { 
-            mode: self.mode,
-            cells: new_cells,
-            width: self.width, 
-            height: self.height,
-            wrap: self.wrap,
-            scroll: self.scroll,
-            w_line: self.w_line,
-        }
-    }
-
     fn shift_all_cells(&self, buffer: &Vec<Cell>, shift_x: i32, shift_y: i32) -> Vec<Cell> {
         let w: i32 = self.width as i32;
         let h: i32 = self.height as i32;
@@ -193,6 +154,78 @@ impl CellGrid {
         shifted_cells.sort_by(|a, b| xy_idx(a.x, a.y).cmp(&xy_idx(b.x, b.y)));
 
         shifted_cells
+    }
+
+    fn wolfram_rule(statebin: &str, rule: Vec<char>) -> CellState {
+        let new_state: CellState;
+
+        // generalize rules by converting binary number into string
+        match statebin {
+            "111" => { new_state = Self::state_index(rule[0]) },
+            "110" => { new_state = Self::state_index(rule[1]) },
+            "101" => { new_state = Self::state_index(rule[2]) },
+            "100" => { new_state = Self::state_index(rule[3]) },
+            "011" => { new_state = Self::state_index(rule[4]) },
+            "010" => { new_state = Self::state_index(rule[5]) },
+            "001" => { new_state = Self::state_index(rule[6]) },
+            "000" => { new_state = Self::state_index(rule[7]) },
+            _ => { new_state = CellState::Off }
+        }
+
+        new_state
+    }
+
+    fn moore_rule(state_records: Vec<CellState>) -> CellState {
+        let center_pos: usize = state_records.len()/2;
+        let center = state_records[center_pos];
+        //count neighbours
+        let mut n = 0;
+        for idx in 0..state_records.len() {
+            if idx != center_pos {
+                match state_records[idx] {
+                    CellState::On => { n += 1 },
+                    CellState::Off => { n += 0 },
+                }
+            }
+        }
+
+        //decide new state
+        match center {
+            CellState::On => {
+                if n < 2 || n > 3 { 
+                    return CellState::Off 
+                } else { 
+                    return CellState::On 
+                }
+            },
+            CellState::Off => {
+                if n == 3 { 
+                    return CellState::On 
+                } else { 
+                    return CellState::Off 
+                }
+            },
+        }
+    }
+
+    fn null_step(&self) -> Self {
+
+        let mut new_cells: Vec<Cell> = Vec::new();
+        for idx in 0..self.cells.len() {
+            let (cell_x, cell_y) = idx_xy(idx);
+            new_cells.push(Cell::new(self.cells[idx].state, cell_x, cell_y))
+        }
+
+
+        CellGrid { 
+            mode: self.mode,
+            cells: new_cells,
+            width: self.width, 
+            height: self.height,
+            wrap: self.wrap,
+            scroll: self.scroll,
+            w_line: self.w_line,
+        }
     }
 
     fn wolfram_step(&self) -> Self {
@@ -228,8 +261,8 @@ impl CellGrid {
                 if self.wrap {
                     if x < 0 { x += w }
                     if x >= w { x -= w }
-                        // check neighbour state (use buffer)
-                        state_records.push(buffer[xy_idx(x, y)].state);
+                    // check neighbour state (use buffer)
+                    state_records.push(buffer[xy_idx(x, y)].state);
                 } else { 
                     // if not wrap, ignore illegal positions
                     if !(x < 0 || x >= w) {
@@ -263,7 +296,7 @@ impl CellGrid {
                 } 
             }
         }
-       
+
         // return
         CellGrid { 
             mode: self.mode,
@@ -273,39 +306,6 @@ impl CellGrid {
             wrap: self.wrap,
             scroll: self.scroll,
             w_line: new_w_line,
-        }
-    }
-
-    fn moore_rule(state_records: Vec<CellState>) -> CellState {
-        let center_pos: usize = state_records.len()/2;
-        let center = state_records[center_pos];
-        //count neighbours
-        let mut n = 0;
-        for idx in 0..state_records.len() {
-            if idx != center_pos {
-                match state_records[idx] {
-                    CellState::On => { n += 1 },
-                    CellState::Off => { n += 0 },
-                }
-            }
-        }
-
-        //decide new state
-        match center {
-            CellState::On => {
-                if n < 2 || n > 3 { 
-                    return CellState::Off 
-                } else { 
-                    return CellState::On 
-                }
-            },
-            CellState::Off => {
-                if n == 3 { 
-                    return CellState::On 
-                } else { 
-                    return CellState::Off 
-                }
-            },
         }
     }
 
