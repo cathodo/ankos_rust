@@ -10,4 +10,4 @@ Cargo.lock
 **/*.rs.bk
 
 # vs code ws files
-*.workspace
+*.code-workspace
