@@ -1,9 +1,7 @@
-use bracket_lib::prelude::{ BTerm, RGB, to_cp437, FontCharType, console };
-// all colours?
 use bracket_lib::prelude::*;
 use specs::*;
 use specs_derive::*;
-use super::{ SCREENWIDTH, SCREENHEIGHT, Mode, ScrollMode, RULE };
+use super::{ SCREENWIDTH, Mode, ScrollMode, RULE };
 
 pub fn xy_idx(x: i32, y: i32) -> usize {
     (y as usize * SCREENWIDTH) + x as usize
@@ -50,8 +48,8 @@ impl Cell {
                     state: CellState::Off,
                     x,
                     y,
-                    glyph: to_cp437('.'),
-                    fg: RGB::named(RED),
+                    glyph: to_cp437('|'),
+                    fg: RGB::named(GREY),
                     bg: RGB::named(BLACK),
                 }
             }
@@ -93,7 +91,7 @@ impl CellGrid {
             wrap,
             scroll,
             w_line: 1,
-         }
+        }
     }
 
     pub fn step(&self) -> Self {
@@ -120,7 +118,7 @@ impl CellGrid {
         let mut str: String = format!("{:b}", n).to_string();
         
         // prepending 0's
-        for p in 0..8-str.len() {
+        for _p in 0..8-str.len() {
             str = format!("{}{}", "0", str)
         }
 
@@ -207,26 +205,6 @@ impl CellGrid {
                     return CellState::Off 
                 }
             },
-        }
-    }
-
-    fn null_step(&self) -> Self {
-
-        let mut new_cells: Vec<Cell> = Vec::new();
-        for idx in 0..self.cells.len() {
-            let (cell_x, cell_y) = idx_xy(idx);
-            new_cells.push(Cell::new(self.cells[idx].state, cell_x, cell_y))
-        }
-
-
-        CellGrid { 
-            mode: self.mode,
-            cells: new_cells,
-            width: self.width, 
-            height: self.height,
-            wrap: self.wrap,
-            scroll: self.scroll,
-            w_line: self.w_line,
         }
     }
 
@@ -330,9 +308,7 @@ impl CellGrid {
         let mut new_cells: Vec<Cell> = Vec::new();
         // iter the cells to find new states
         for idx in 0..self.cells.len() {
-            let mut new_state = buffer[idx].state;
             let (cell_x, cell_y) = idx_xy(idx); 
-            let mut n = 0;
             // iter over all moore n(eighbours)
             let mut state_records: Vec<CellState> = Vec::new();
             for (m_x, m_y) in state_informing_neighbours.iter() {
@@ -356,7 +332,7 @@ impl CellGrid {
             }
 
             // after moore iter, decide new cell state
-            new_state = Self::moore_rule(state_records);
+            let new_state = Self::moore_rule(state_records);
 
             new_cells.push(Cell::new(new_state, cell_x, cell_y));
         } 

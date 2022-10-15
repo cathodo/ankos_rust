@@ -5,8 +5,8 @@ use cellular_automata::*;
 mod mode_terminals;
 use mode_terminals::*;
 
-pub const SCREENWIDTH: usize = 160;
-pub const SCREENHEIGHT: usize = 90;
+pub const SCREENWIDTH: usize = 80;
+pub const SCREENHEIGHT: usize = 60;
 const CYCLESPERSECOND: f32 = 30.0;
 ////// choose 2d or 1d
 pub const MODE: Mode = Mode::Conway;
@@ -16,7 +16,7 @@ pub const SPACEONESTEP: bool = false;
 // if cells on edge wrap around to check neighbours
 // slightly diff behaviour on 2d vs 1d, 2d wraps all edges, 
 // 1d only wraps x axis edges (L & R not top & bottom) see SCROLLMODE
-pub const WRAPCELLS: bool = true;
+pub const WRAPCELLS: bool = false;
 
 //// 2d params
 // percentage of screen to be random cells in seed init
@@ -56,7 +56,7 @@ fn player_input(current_state: RunState, ctx: &mut BTerm) -> RunState {
                     RunState::Running => { return RunState::Paused }
                     RunState::Paused => { return RunState::Running }
                 }
-             }
+            }
 
             _ => { current_state }
         },

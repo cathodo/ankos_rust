@@ -27,7 +27,7 @@ pub fn setup_ecs_1d(ecs: &mut World, width: usize, height: usize) {
     ecs.register::<CellGrid>();
 
     let w: i32 = width as i32;
-    let h: i32 = height as i32;
+    let _h: i32 = height as i32;
     // init seed is center first row
     let mut seeds: Vec<(i32, i32)> = Vec::new();
     seeds.push((w/2,0));
