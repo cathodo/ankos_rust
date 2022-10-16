@@ -9,14 +9,14 @@ pub const SCREENWIDTH: usize = 80;
 pub const SCREENHEIGHT: usize = 60;
 const CYCLESPERSECOND: f32 = 30.0;
 ////// choose 2d or 1d
-pub const MODE: Mode = Mode::Conway;
+pub const MODE: Mode = Mode::Wolfram;
 
 ////// use space to pause/unpause (false), or just to advance one state (true)
 pub const SPACEONESTEP: bool = false;
 // if cells on edge wrap around to check neighbours
 // slightly diff behaviour on 2d vs 1d, 2d wraps all edges, 
 // 1d only wraps x axis edges (L & R not top & bottom) see SCROLLMODE
-pub const WRAPCELLS: bool = false;
+pub const WRAPCELLS: bool = true;
 
 //// 2d params
 // percentage of screen to be random cells in seed init
@@ -90,9 +90,10 @@ fn main() -> BError {
         .unwrap()
         .with_title("CA testing")
         .with_fps_cap(CYCLESPERSECOND)
+        .with_fitscreen(true)
         .build()?;
 
-    context.with_post_scanlines(true);
+    context.with_post_scanlines(false);
 
     let mut gs = State {
         ecs: World::new(),

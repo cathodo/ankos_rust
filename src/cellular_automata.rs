@@ -38,9 +38,9 @@ impl Cell {
                     state: CellState::On,
                     x,
                     y,
-                    glyph: to_cp437('='),
-                    fg: RGB::named(GREEN),
-                    bg: RGB::named(BLACK),
+                    glyph: to_cp437('◘'),
+                    fg: RGB::named(BLACK),
+                    bg: RGB::named(GREY),
                 }
             },
             CellState::Off => {
@@ -48,9 +48,9 @@ impl Cell {
                     state: CellState::Off,
                     x,
                     y,
-                    glyph: to_cp437('|'),
-                    fg: RGB::named(GREY),
-                    bg: RGB::named(BLACK),
+                    glyph: to_cp437('•'),
+                    fg: RGB::named(BLACK),
+                    bg: RGB::named(GREY),
                 }
             }
         }
