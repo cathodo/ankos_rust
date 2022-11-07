@@ -9,12 +9,12 @@ pub const SCREENWIDTH: usize = 80;
 pub const SCREENHEIGHT: usize = 60;
 const CYCLESPERSECOND: f32 = 30.0;
 ////// choose 2d or 1d
-pub const MODE: Mode = Mode::Wolfram;
+pub const MODE: Mode = Mode::Conway;
 
 ////// use space to pause/unpause (false), or just to advance one state (true)
 pub const SPACEONESTEP: bool = false;
 // if cells on edge wrap around to check neighbours
-// slightly diff behaviour on 2d vs 1d, 2d wraps all edges, 
+// slightly diff behaviour on 2d vs 1d, 2d wraps all edges,
 // 1d only wraps x axis edges (L & R not top & bottom) see SCROLLMODE
 pub const WRAPCELLS: bool = true;
 
@@ -33,54 +33,64 @@ const RULE: i32 = 30;
 ////////////////////////////////////////
 
 #[derive(PartialEq, Copy, Clone)]
-pub enum Mode { Conway, Wolfram }
+pub enum Mode {
+    Conway,
+    Wolfram,
+}
 
 #[derive(PartialEq, Copy, Clone)]
-pub enum ScrollMode { Shift, Loop, Stop }
+pub enum ScrollMode {
+    Shift,
+    Loop,
+    Stop,
+}
 
 #[derive(PartialEq, Copy, Clone)]
-pub enum RunState { Paused, Running }
+pub enum RunState {
+    Paused,
+    Running,
+}
 
 struct State {
     ecs: World,
-    pub runstate : RunState
+    pub runstate: RunState,
 }
 
 fn player_input(current_state: RunState, ctx: &mut BTerm) -> RunState {
     // Player movement
     match ctx.key {
-        None => { return current_state } // Nothing happened
+        None => return current_state, // Nothing happened
         Some(key) => match key {
-            VirtualKeyCode::Space => { 
-                match current_state {
-                    RunState::Running => { return RunState::Paused }
-                    RunState::Paused => { return RunState::Running }
-                }
-            }
+            VirtualKeyCode::Space => match current_state {
+                RunState::Running => return RunState::Paused,
+                RunState::Paused => return RunState::Running,
+            },
 
-            _ => { current_state }
+            _ => current_state,
         },
     }
 }
 
 impl GameState for State {
-    fn tick(&mut self, ctx : &mut BTerm) {
+    fn tick(&mut self, ctx: &mut BTerm) {
         ctx.cls();
-        
+
         let mut cells = self.ecs.fetch_mut::<CellGrid>().to_owned();
         cells.draw_cells(ctx);
-        
+
         match self.runstate {
             RunState::Running => {
                 cells = cells.step();
-                if SPACEONESTEP { self.runstate = RunState::Paused; }
+                if SPACEONESTEP {
+                    self.runstate = RunState::Paused;
+                }
                 self.runstate = player_input(self.runstate, ctx);
             }
             RunState::Paused => {
                 self.runstate = player_input(self.runstate, ctx);
             }
         }
-        
+
         self.ecs.insert(cells);
     }
 }
@@ -101,8 +111,8 @@ fn main() -> BError {
     };
 
     match MODE {
-        Mode::Conway => { setup_ecs_2d(&mut gs.ecs, SCREENWIDTH, SCREENHEIGHT) },
-        Mode::Wolfram => { setup_ecs_1d(&mut gs.ecs, SCREENWIDTH, SCREENHEIGHT) },
+        Mode::Conway => setup_ecs_2d(&mut gs.ecs, SCREENWIDTH, SCREENHEIGHT),
+        Mode::Wolfram => setup_ecs_1d(&mut gs.ecs, SCREENWIDTH, SCREENHEIGHT),
     }
 
     main_loop(context, gs)
